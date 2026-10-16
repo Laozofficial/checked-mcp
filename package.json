@@ -1,0 +1,48 @@
+{
+  "name": "@checked/mcp",
+  "version": "0.1.0",
+  "description": "MCP server that lets AI assistants (Claude Code, Cursor, VS Code) use Check’d: runs, results, AI reports, findings and usage.",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "checked-mcp": "dist/bin.js"
+  },
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/test/server.test.js",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "checked",
+    "mcp",
+    "model-context-protocol",
+    "qa",
+    "testing"
+  ],
+  "dependencies": {
+    "@checked/cli": "file:../cli",
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "typescript": "~6.0.3"
+  }
+}
