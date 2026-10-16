@@ -2,8 +2,16 @@
   "name": "@checked/mcp",
   "version": "0.1.0",
   "description": "MCP server that lets AI assistants (Claude Code, Cursor, VS Code) use Check’d: runs, results, AI reports, findings and usage.",
-  "license": "UNLICENSED",
-  "private": true,
+  "license": "MIT",
+  "author": "TwelveAI (https://twelveai.app)",
+  "homepage": "https://getchecked.twelveai.app/docs/mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laozofficial/checked-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Laozofficial/checked-mcp/issues"
+  },
   "type": "module",
   "bin": {
     "checked-mcp": "dist/bin.js"
@@ -18,7 +26,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
@@ -27,7 +36,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "test": "tsc -p tsconfig.test.json && node --test .test-build/test/server.test.js",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
     "checked",
@@ -37,12 +47,15 @@
     "testing"
   ],
   "dependencies": {
-    "@checked/cli": "file:../cli",
+    "@checked/cli": "^0.1.0",
     "@modelcontextprotocol/sdk": "^1.32.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^20.19.0",
     "typescript": "~6.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
