@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CheckedClient, readConfig, resolveApiUrl, resolveCredential } from '@checked/cli/core'
+import { CheckedClient, readConfig, resolveApiUrl, resolveCredential } from 'checkd-cli/core'
 import { createCheckedServer, SERVER_VERSION } from './server.js'
 
 /**

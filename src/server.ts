@@ -21,7 +21,7 @@ import {
   KIND_LABEL,
   VERSION as CORE_VERSION,
   type Capabilities,
-} from '@checked/cli/core'
+} from 'checkd-cli/core'
 
 export const SERVER_VERSION = '0.1.0'
 

@@ -1,5 +1,5 @@
 {
-  "name": "@checked/mcp",
+  "name": "checkd-mcp",
   "version": "0.1.0",
   "description": "MCP server that lets AI assistants (Claude Code, Cursor, VS Code) use Check’d: runs, results, AI reports, findings and usage.",
   "license": "MIT",
@@ -47,7 +47,7 @@
     "testing"
   ],
   "dependencies": {
-    "@checked/cli": "^0.1.0",
+    "checkd-cli": "^0.1.0",
     "@modelcontextprotocol/sdk": "^1.32.0",
     "zod": "^3.25.76"
   },

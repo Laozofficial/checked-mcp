@@ -1,8 +1,8 @@
-# @checked/mcp
+# checkd-mcp
 
 An MCP server (stdio) that lets AI assistants use Check’d: read run results, AI reports and findings with their evidence, and, when you ask, start runs, re-run failed tests or scan a website.
 
-Needs Node.js 20 or newer. Built on the official MCP TypeScript SDK and the `@checked/cli` core.
+Needs Node.js 20 or newer. Built on the official MCP TypeScript SDK and the `checkd-cli` core.
 
 ## Credentials
 
@@ -17,7 +17,7 @@ Without a credential the server still starts; every tool answers with how to sig
 Claude Code:
 
 ```sh
-claude mcp add checked --env CHECKED_API_KEY=tfy_your_key -- npx -y @checked/mcp
+claude mcp add checked --env CHECKED_API_KEY=tfy_your_key -- npx -y checkd-mcp
 ```
 
 Cursor (`.cursor/mcp.json`, or `~/.cursor/mcp.json` for every project):
@@ -25,7 +25,7 @@ Cursor (`.cursor/mcp.json`, or `~/.cursor/mcp.json` for every project):
 ```json
 {
   "mcpServers": {
-    "checked": { "command": "npx", "args": ["-y", "@checked/mcp"], "env": { "CHECKED_API_KEY": "tfy_your_key" } }
+    "checked": { "command": "npx", "args": ["-y", "checkd-mcp"], "env": { "CHECKED_API_KEY": "tfy_your_key" } }
   }
 }
 ```
@@ -36,7 +36,7 @@ VS Code (`.vscode/mcp.json`; VS Code asks for the key once):
 {
   "inputs": [{ "type": "promptString", "id": "checked-api-key", "description": "Check’d workspace API key", "password": true }],
   "servers": {
-    "checked": { "type": "stdio", "command": "npx", "args": ["-y", "@checked/mcp"], "env": { "CHECKED_API_KEY": "${input:checked-api-key}" } }
+    "checked": { "type": "stdio", "command": "npx", "args": ["-y", "checkd-mcp"], "env": { "CHECKED_API_KEY": "${input:checked-api-key}" } }
   }
 }
 ```
@@ -78,7 +78,7 @@ The server sends instructions to the client: prefer read-only tools, start work 
 
 ## Issues seam
 
-The issue tools use `issuesProvider()` from `@checked/cli/core`. When `/cli/whoami` reports `capabilities.issuesInbox: true` they read the issue inbox (`get_issue` includes the privacy-safe evidence, the fix pull request and the cached AI explanation; it never starts a new one); on older servers they read findings. `list_findings` and `get_finding` always read runs.
+The issue tools use `issuesProvider()` from `checkd-cli/core`. When `/cli/whoami` reports `capabilities.issuesInbox: true` they read the issue inbox (`get_issue` includes the privacy-safe evidence, the fix pull request and the cached AI explanation; it never starts a new one); on older servers they read findings. `list_findings` and `get_finding` always read runs.
 
 ## Development
 

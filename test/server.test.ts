@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { CheckedClient, type FetchLike } from '@checked/cli/core'
+import { CheckedClient, type FetchLike } from 'checkd-cli/core'
 import { createCheckedServer, INSTRUCTIONS } from '../src/server.js'
 
 type Call = { method: string; path: string; query: URLSearchParams; body: any; auth?: string }
