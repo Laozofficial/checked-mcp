@@ -8,11 +8,14 @@ import {
   describeError,
   errorJson,
   formatFinding,
+  formatIssue,
   formatReport,
   formatSummary,
   formatUsage,
   formatPreview,
   issuesProvider,
+  isInboxIssue,
+  FindingsIssuesProvider,
   runOutcome,
   waitForRun,
   KIND_LABEL,
@@ -32,7 +35,8 @@ How to use these tools:
 - Tools that start work (start_run, start_scan, rerun_failed) use the workspace's usage allowance (a rolling session budget and a monthly allowance). Start one only when the user asks for a run or clearly needs fresh results, for example after changing code. Never loop on them.
 - If a tool answers that the allowance is used up, stop and tell the user the message and when it resets. Do not retry.
 - Projects and runs accept their ref (e.g. payments-kqzxm, hbtqwpmz) or numeric id. Finding ids look like r123 (a failed API test) or f456 (a website scan finding).
-- To fix a failure: list_findings for the project, then get_finding for the full request, response, diagnosis and suggested fix; change the code; then start_run or rerun_failed to confirm.`
+- To fix a failure: list_findings for the project, then get_finding for the full request, response, diagnosis and suggested fix; change the code; then start_run or rerun_failed to confirm.
+- list_issues and get_issue read the issue inbox when the server has one: errors real users hit in production (with stack frames, breadcrumbs, and the AI explanation when someone has asked for one) and test findings. Issue ids are letter refs (e.g. kqzxmvbt). They never start an AI explanation or a fix.`
 
 type Deps = { sleep?: (ms: number, signal?: AbortSignal) => Promise<void>; now?: () => number }
 
@@ -164,23 +168,35 @@ export function createCheckedServer(client: CheckedClient, deps: Deps = {}): Mcp
   )
 
   const findingsInput = { project: ref('Project'), run: ref('Run').optional().describe('Default: the latest finished run'), severity: z.enum(['critical', 'high', 'medium', 'low', 'info']).optional().describe('This severity and worse'), limit: z.number().int().min(1).max(200).optional() }
-  const listFindings = (label: string) =>
-    safe(async ({ project, run, severity, limit }: { project: string | number; run?: string | number; severity?: 'critical' | 'high' | 'medium' | 'low' | 'info'; limit?: number }) => {
+  // Findings always come from runs; issues come from the inbox when the server has one.
+  const findings = new FindingsIssuesProvider(client)
+  const listFindings = (label: 'findings' | 'issues') =>
+    safe(async ({ project, run, severity, limit, status, source }: { project: string | number; run?: string | number; severity?: 'critical' | 'high' | 'medium' | 'low' | 'info'; limit?: number; status?: string; source?: string }) => {
       const runId = run !== undefined ? (await client.run(run)).id : undefined
-      const list = await (await issues()).list({ projectId: project, runId, severity, limit: limit ?? 30 })
+      const provider = label === 'findings' ? findings : await issues()
+      const list = await provider.list({ projectId: project, runId, severity, limit: limit ?? 30, status, source })
       if (list.scope.kind === 'none') return text('No finished runs yet, so there is nothing to show.', list)
+      if (list.scope.kind === 'inbox') {
+        const lines = list.issues.map((i) => (isInboxIssue(i) ? `- ${i.ref} [${i.severity}, ${i.status}] ${i.title} (${i.source === 'production' ? `${i.occurrences} times, ${i.usersAffected} users` : `${i.occurrences} runs`})${i.aiSummary ? `. AI: ${i.aiSummary}` : ''}${i.hasFixPr ? '. Has a fix PR.' : ''}` : `- ${i.id} [${i.severity}] ${i.title}`))
+        return text([`${list.total} ${label} in the inbox, highest impact first. Call get_issue with a ref for the evidence and explanation.`, ...lines].join('\n'), list)
+      }
       const head = list.scope.kind === 'run' ? `From run ${list.scope.runRef ?? list.scope.runId} (${list.scope.status}); ${list.total} ${label}.` : ''
       return text([head, ...list.issues.map((f) => `- ${f.id} [${f.severity}] ${f.title}${f.endpoint ? ` (${f.endpoint.method} ${f.endpoint.path})` : f.url ? ` (${f.url})` : ''}`)].join('\n'), list)
     })
   const getFinding = safe(async ({ id }: { id: string }) => {
-    const f = await (await issues()).show(id)
+    const f = await findings.show(id)
     return text(formatFinding(f, undefined, 6000), f)
   })
+  const getIssue = safe(async ({ id }: { id: string }) => {
+    const f = await (await issues()).show(id)
+    return text(isInboxIssue(f) ? formatIssue(f, undefined, { explain: true }) : formatFinding(f, undefined, 6000), f)
+  })
+  const issuesInput = { ...findingsInput, status: z.enum(['open', 'new', 'regressed', 'investigating', 'resolved', 'ignored', 'all']).optional().describe('Default open (new, regressed, investigating)'), source: z.enum(['production', 'test_run', 'site_scan', 'load_test']).optional() }
 
   server.registerTool('list_findings', { title: 'List findings', description: 'Read-only. Problems from a run (default the latest finished one): failed API tests and website scan findings, worst first.', inputSchema: findingsInput, annotations: READ }, listFindings('findings'))
   server.registerTool('get_finding', { title: 'Get finding', description: 'Read-only. One finding with its full evidence: the exact request and response, failed checks, stack trace or console errors when captured, the diagnosis and how to fix it.', inputSchema: { id: z.string().regex(/^[rRfF]?\d+$/).describe('r123 or f456') }, annotations: READ }, getFinding)
-  server.registerTool('list_issues', { title: 'List issues', description: 'Read-only. Open issues for a project. Today these are the latest run’s findings (same as list_findings); production issues will appear here too once the issue inbox is available.', inputSchema: findingsInput, annotations: READ }, listFindings('issues'))
-  server.registerTool('get_issue', { title: 'Get issue', description: 'Read-only. One issue with its evidence, diagnosis and fix (same ids as get_finding).', inputSchema: { id: z.string().regex(/^[rRfF]?\d+$/).describe('r123 or f456') }, annotations: READ }, getFinding)
+  server.registerTool('list_issues', { title: 'List issues', description: 'Read-only. Open issues for a project from the issue inbox: errors real users hit in production and findings from tests and scans, highest impact first, with the one-line AI summary when one exists. On servers without the inbox, the latest run’s findings.', inputSchema: issuesInput, annotations: READ }, listFindings('issues'))
+  server.registerTool('get_issue', { title: 'Get issue', description: 'Read-only. One issue: occurrences, users, releases, the privacy-safe evidence (error, stack frames in the app’s code, breadcrumbs, request), its fix pull request, and the cached AI explanation (what is broken, likely cause, where to look, suggested fix). Never starts a new explanation. Also accepts finding ids (r123, f456).', inputSchema: { id: z.string().regex(/^([rRfF]?\d+|[a-z]{4,16})$/).describe('An issue ref like kqzxmvbt, or r123 / f456') }, annotations: READ }, getIssue)
 
   server.registerTool(
     'get_usage',

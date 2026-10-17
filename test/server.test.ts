@@ -148,3 +148,31 @@ test('resources: the run report reads as markdown text', async () => {
   const { prompts } = await client.listPrompts()
   assert.deepEqual(prompts.map((p) => p.name), ['fix_failures'])
 })
+
+test('issues from the inbox: list with AI summaries, get with the explanation; findings stay on runs', async () => {
+  const issue = { id: 'kqzxmvbt', ref: 'kqzxmvbt', source: 'production', kind: 'error', severity: 'critical', status: 'regressed', title: 'TypeError: total is undefined', culprit: null, errorType: 'TypeError', environment: 'production', occurrences: 46, usersAffected: 23, firstSeenAt: '2026-10-01T10:00:00Z', lastSeenAt: '2026-10-16T10:00:00Z', firstRelease: '1.4.0', lastRelease: '1.4.2', regressedInRelease: '1.4.2', explained: true, aiSummary: 'Checkout crashes after a promo code', hasFixPr: true, projectId: 3, url: 'http://app.test/projects/pay-abcde/issues/kqzxmvbt' }
+  const explanation = { kind: 'ai', explanation: { summary: 'Checkout crashes after a promo code', whatIsBroken: 'Pay fails.', rootCause: 'total is read before the cart loads.', whoIsAffected: '23 users.', impact: 'critical', whereToLook: [{ file: 'src/cart/CartTotal.tsx', line: 42, function: 'formatTotal', why: 'No guard.' }], suggestedFix: ['Guard the total.'], confidence: 'high', confidenceReason: 'The frame shows it.', unknowns: [] }, basedOn: { occurrences: 46, usersAffected: 23, release: '1.4.2', at: '2026-10-16T08:00:00Z' }, source: null, model: 'm', generatedAt: '2026-10-16T08:00:00Z', stale: false, newOccurrences: 0, reasons: [] }
+  const { fetch, calls } = api((c) => {
+    if (c.path === '/cli/whoami') return { body: { data: { kind: 'key', capabilities: { issuesInbox: true }, workspaces: [] } } }
+    if (c.path === '/cli/projects/pay-abcde/issues') return { body: { data: [issue], meta: { total: 1, url: 'http://app.test/projects/pay-abcde/issues' } } }
+    if (c.path === '/cli/issues/kqzxmvbt') return { body: { data: { ...issue, evidence: { error: { type: 'TypeError', message: 'total is undefined', handled: false, mechanism: 'onerror' }, frames: [{ fn: 'formatTotal', file: '/src/cart/CartTotal.tsx', line: 42, column: 7 }], request: null, page: '/checkout/:id', breadcrumbs: [] }, explanation, fixPr: { id: 9, status: 'opened', url: 'https://github.com/acme/shop/pull/12', number: 12, branch: 'checked/fix-issue-kqzxmvbt-1017', mergedAt: null } } } }
+    if (c.path === '/cli/projects/pay-abcde/findings') return { body: { data: [], meta: { run: { id: 7, ref: 'hbtqwpmz', kind: 'suite', status: 'passed', finishedAt: null, url: 'u' }, total: 0 } } }
+    return undefined
+  })
+  const client = await connect(fetch)
+  const l = await client.callTool({ name: 'list_issues', arguments: { project: 'pay-abcde', source: 'production', status: 'all' } })
+  assert.match(textOf(l), /1 issues in the inbox, highest impact first/)
+  assert.match(textOf(l), /- kqzxmvbt \[critical, regressed\] TypeError: total is undefined \(46 times, 23 users\)\. AI: Checkout crashes after a promo code\. Has a fix PR\./)
+  const listCall = calls.find((c) => c.path.endsWith('/issues'))!
+  assert.equal(listCall.query.get('source'), 'production')
+  assert.equal(listCall.query.get('status'), 'all')
+  const g = await client.callTool({ name: 'get_issue', arguments: { id: 'kqzxmvbt' } })
+  assert.match(textOf(g), /Likely root cause\ntotal is read before the cart loads\./)
+  assert.match(textOf(g), /- src\/cart\/CartTotal\.tsx:42 \(formatTotal\): No guard\./)
+  assert.match(textOf(g), /Fix pull request: opened #12 https:\/\/github\.com\/acme\/shop\/pull\/12/)
+  // list_findings still reads the latest run, whatever the server supports.
+  const f = await client.callTool({ name: 'list_findings', arguments: { project: 'pay-abcde' } })
+  assert.match(textOf(f), /From run hbtqwpmz \(passed\); 0 findings\./)
+  // Nothing here writes or starts work.
+  assert.ok(calls.every((c) => c.method === 'GET'))
+})

@@ -56,7 +56,7 @@ Read-only (free; `readOnlyHint: true`):
 | `get_run_results` | Individual API test results |
 | `get_run_report` | The AI QA report |
 | `list_findings`, `get_finding` | Failed tests and scan findings; full request, response, checks, stack trace, diagnosis and fix |
-| `list_issues`, `get_issue` | Issues; today the same data as findings (see the seam below) |
+| `list_issues`, `get_issue` | The issue inbox: production errors and test findings, with the cached AI explanation (see the seam below) |
 | `get_usage` | Session and month usage, and whether work is blocked |
 | `preview_import` | What an API import would add; nothing saved |
 
@@ -78,7 +78,7 @@ The server sends instructions to the client: prefer read-only tools, start work 
 
 ## Issues seam
 
-The issue tools use `issuesProvider()` from `@checked/cli/core`. It reads findings today; when `/cli/whoami` reports `capabilities.issuesInbox: true`, that function returns an inbox-backed provider and these tools switch over unchanged.
+The issue tools use `issuesProvider()` from `@checked/cli/core`. When `/cli/whoami` reports `capabilities.issuesInbox: true` they read the issue inbox (`get_issue` includes the privacy-safe evidence, the fix pull request and the cached AI explanation; it never starts a new one); on older servers they read findings. `list_findings` and `get_finding` always read runs.
 
 ## Development
 
